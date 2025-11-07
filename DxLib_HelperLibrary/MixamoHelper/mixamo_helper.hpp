@@ -1,5 +1,5 @@
 ﻿#pragma once
-#include <Vector/vector_3d.hpp>
+#include <Axis/axis.hpp>
 #include <JSON/json_loader.hpp>
 
 /// @brief mixamoモデル用のヘルパー関数
@@ -11,27 +11,16 @@ namespace mixamo_helper
     /// @param out_right 変換後のX軸を格納
     /// @param out_up 変換後のY軸を格納
     /// @param out_forward 変換後のZ軸を格納
-    inline void ConvertRotMatrixToAxis(const MATRIX& rot_matrix, VECTOR& out_right, VECTOR& out_up, VECTOR& out_forward)
+    [[nodiscard]] inline Axis ConvertRotMatrixToAxis(const MATRIX& rot_matrix)
     {
         // 回転行列を取得
-        const auto rot = MGetRotElem(rot_matrix);
-        out_right   = v3d::GetNormalizedV(VGet(rot.m[0][0], rot.m[0][1], rot.m[0][2]));
-        out_up      = v3d::GetNormalizedV(VGet(rot.m[1][0], rot.m[1][1], rot.m[1][2]));
-        out_forward = v3d::GetNormalizedV(VGet(rot.m[2][0], rot.m[2][1], rot.m[2][2]));
-    }
+        const auto rot      = MGetRotElem(rot_matrix);
+        const auto x_axis   = v3d::GetNormalizedV(VGet(rot.m[0][0], rot.m[0][1], rot.m[0][2]));
+        const auto y_axis   = v3d::GetNormalizedV(VGet(rot.m[1][0], rot.m[1][1], rot.m[1][2]));
+        const auto z_axis   = v3d::GetNormalizedV(VGet(rot.m[2][0], rot.m[2][1], rot.m[2][2]));
 
-    /// @brief XYZ軸を描画する
-    /// @param right X軸
-    /// @param up Y軸
-    /// @param forward Z軸
-    /// @param begin_pos 描画開始地点
-    /// @param length 軸の長さ
-    inline void DrawAxis(const VECTOR& right, const VECTOR& up, const VECTOR& forward, const VECTOR& begin_pos, const float length)
-    {
-        DrawLine3D(begin_pos, begin_pos + right     * length, GetColor(UCHAR_MAX, 0, 0));
-        DrawLine3D(begin_pos, begin_pos + up        * length, GetColor(0, UCHAR_MAX, 0));
-        DrawLine3D(begin_pos, begin_pos + forward   * length, GetColor(0, 0, UCHAR_MAX));
-    };
+        return { x_axis, y_axis, z_axis };
+    }
 
 	/// @brief モデルのフレームを描画する
 	/// @param model_handle モデルハンドル
@@ -42,7 +31,7 @@ namespace mixamo_helper
     inline void DrawFrames(const int model_handle, const bool is_draw_joint = true, const bool is_draw_bone = true, const bool is_draw_axis = true, const bool is_fill = true)
 	{
 		nlohmann::json data;
-        if (!json_loader::Load("OwnLibrary/Data/JSON/mixamo_frame_hierarchy.json", data)) { return; }
+        if (!json_loader::Load("DxLib_HelperLibrary/Data/JSON/mixamo_frame_hierarchy.json", data)) { return; }
 		
         // 最下層フレーム
 		const auto  hips    = data.at("Armature").at("mixamorig:Hips");
@@ -65,24 +54,21 @@ namespace mixamo_helper
                 const auto distance     = VSize(child_pos - parent_pos);
                 const auto radius       = distance * 0.2f;
                 const auto axis_length  = distance * 0.6f;
-
-                VECTOR parent_right, parent_up, parent_forward;
-                ConvertRotMatrixToAxis(parent_matrix, parent_right, parent_up, parent_forward);
+                const auto parent_axis  = ConvertRotMatrixToAxis(parent_matrix);
 
                 // 関節・ボーン・XYZ軸の描画
                 if (is_draw_joint) { DrawSphere3D(parent_pos, radius, 6, 0xffffff, 0xffffff, is_fill); }
                 if (is_draw_bone ) { DrawCone3D(child_pos, parent_pos, radius, 6, 0xffffff, 0xffffff, is_fill); }
-                if (is_draw_axis ) { DrawAxis(parent_right, parent_up, parent_forward, parent_pos, axis_length); }
+                if (is_draw_axis ) { axis::Draw(parent_axis, parent_pos, axis_length); }
 
                 // 子がいないため再帰しない
                 if (itr.value().empty())
                 {
-                    VECTOR child_right, child_up, child_forward;
-                    ConvertRotMatrixToAxis(child_m, child_right, child_up, child_forward);
+                    const auto child_axis = ConvertRotMatrixToAxis(child_m);
                     
                     // 子がいない場合、関節・XYZ軸のみ描画
                     if (is_draw_joint) { DrawSphere3D(child_pos, radius, 6, 0xffffff, 0xffffff, is_fill); }
-                    if (is_draw_axis)  { DrawAxis(child_right, child_up, child_forward, child_pos, axis_length); }
+                    if (is_draw_axis)  { axis::Draw(child_axis, child_pos, axis_length); }
 
                     continue;
                 }
