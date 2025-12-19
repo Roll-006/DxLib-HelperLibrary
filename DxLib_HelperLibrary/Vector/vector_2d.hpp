@@ -1,8 +1,6 @@
-#pragma once
+﻿#pragma once
 #include <cmath>
 #include <nlohmann/json.hpp>
-
-#include "vector_concepts.hpp"
 
 template<typename ElemT>
 struct Vector2D
@@ -10,64 +8,67 @@ struct Vector2D
     ElemT x;
     ElemT y;
 
-    Vector2D  operator+() const             { return *this; }
-	Vector2D  operator-() const				{ return { -x, -y }; }
+    Vector2D  operator+() const { return *this; }
+	Vector2D  operator-() const { return Vector2D{ -x, -y }; }
 
-    Vector2D& operator= (const Vector2D& v) { x = v.x;  y = v.y;  return *this; }
+	template<typename T>
+    Vector2D& operator= (const Vector2D<T>& v) { x  = static_cast<ElemT>(v.x);   y  = static_cast<ElemT>(v.y);   return *this; }
 
-    Vector2D& operator+=(const Vector2D& v) { x += v.x; y += v.y; return *this; }
-    Vector2D& operator-=(const Vector2D& v) { x -= v.x; y -= v.y; return *this; }
-    Vector2D& operator*=(const Vector2D& v) { x *= v.x; y *= v.y; return *this; }
+	template<typename T>
+    Vector2D& operator+=(const Vector2D<T>& v) { x += static_cast<ElemT>(v.x);   y += static_cast<ElemT>(v.y);   return *this; }
 
-    template<typename ScaleT>
-    Vector2D& operator*=(const ScaleT scale){ return Vector2D(x * scale, y * scale); }
+	template<typename T>
+    Vector2D& operator-=(const Vector2D<T>& v) { x -= static_cast<ElemT>(v.x);   y -= static_cast<ElemT>(v.y);   return *this; }
+
+	template<typename T>
+    Vector2D& operator*=(const Vector2D<T>& v) { x *= static_cast<ElemT>(v.x);   y *= static_cast<ElemT>(v.y);   return *this; }
+
+	template<typename ScaleT>
+	Vector2D& operator*=(const ScaleT scale)   { x *= static_cast<ElemT>(scale); y *= static_cast<ElemT>(scale); return *this; }
 };
 
-inline auto operator+ (const v2d_concepts::ValidT auto& v1, const v2d_concepts::ValidT auto& v2){ return Vector2D(v1.x + v2.x, v1.y + v2.y); }
-inline auto operator- (const v2d_concepts::ValidT auto& v1, const v2d_concepts::ValidT auto& v2){ return Vector2D(v1.x - v2.x, v1.y - v2.y); }
-inline auto operator* (const v2d_concepts::ValidT auto& v1, const v2d_concepts::ValidT auto& v2){ return Vector2D(v1.x * v2.x, v1.y * v2.y); }
+template<typename T, typename U>
+inline auto operator+ (const Vector2D<T>& v1,	const Vector2D<U>& v2)		{ return Vector2D<decltype(v1.x + v2.x)>{ v1.x + v2.x, v1.y + v2.y }; }
 
-template<typename ScaleT>
-inline auto operator* (const v2d_concepts::ValidT auto& v,  const ScaleT scale)                 { return Vector2D(v.x * scale, v.y * scale); }
-template<typename ScaleT>
-inline auto operator* (const ScaleT scale,                  const v2d_concepts::ValidT auto& v) { return v * scale; }
+template<typename T, typename U>
+inline auto operator- (const Vector2D<T>& v1,	const Vector2D<U>& v2)		{ return Vector2D<decltype(v1.x - v2.x)>{ v1.x - v2.x, v1.y - v2.y }; }
 
-inline bool operator==(const v2d_concepts::ValidT auto& v1, const v2d_concepts::ValidT auto& v2){ return v1.x == v2.x && v1.y == v2.y; }
-inline bool operator!=(const v2d_concepts::ValidT auto& v1, const v2d_concepts::ValidT auto& v2){ return !(v1 == v2); }
+template<typename T, typename U>
+inline auto operator* (const Vector2D<T>& v1,	const Vector2D<U>& v2)		{ return Vector2D<decltype(v1.x * v2.x)>{ v1.x * v2.x, v1.y * v2.y }; }
+
+template<typename VecT, typename ScaleT>
+inline auto operator* (const Vector2D<VecT>& v, const ScaleT scale)			{ return Vector2D<VecT>{ static_cast<VecT>(v.x * scale), static_cast<VecT>(v.y * scale) }; }
+
+template<typename VecT, typename ScaleT>
+inline auto operator* (const ScaleT scale,		const Vector2D<VecT>& v)	{ return v * scale; }
+
+template<typename T, typename U>
+inline bool operator==(const Vector2D<T>& v1,	const Vector2D<U>& v2)		{ return v1.x == v2.x && v1.y == v2.y; }
+
+template<typename T, typename U>
+inline bool operator!=(const Vector2D<T>& v1,	const Vector2D<U>& v2)		{ return !(v1 == v2); }
 
 
 namespace v2d
 {
-	template<typename CastT>
-	[[nodiscard]] inline Vector2D<CastT> ConvertVecType(const v2d_concepts::ValidT auto& v)
-	{
-		return Vector2D<CastT>(v.x, v.y);
-	}
+	template<typename T>
+	[[nodiscard]] inline float GetSize(const Vector2D<T>& v) { return static_cast<float>(sqrt(v.x * v.x + v.y * v.y)); }
 
-	[[nodiscard]] inline float GetSize(const v2d_concepts::ValidT auto& v)
-	{
-		return static_cast<float>(sqrt(v.x * v.x + v.y * v.y));
-	}
-	[[nodiscard]] inline float GetSquareSize(const v2d_concepts::ValidT auto& v)
-	{
-		return GetSize(v) * GetSize(v);
-	}
+	template<typename T>
+	[[nodiscard]] inline float GetSquareSize(const Vector2D<T>& v) { return v.x * v.x + v.y * v.y; }
 
-	template<v2d_concepts::ValidT VecT>
-	[[nodiscard]] inline VecT GetZeroV()
-	{
-		return VecT(0, 0);
-	}
+	template<typename T>
+	[[nodiscard]] inline Vector2D<T> GetZeroV() { return { 0, 0 }; }
 
-	template<v2d_concepts::ValidT VecT>
-	[[nodiscard]] inline VecT GetNormalizedV(const VecT& v)
+	template<typename T>
+	[[nodiscard]] inline Vector2D<T> GetNormalizedV(const Vector2D<T>& v)
 	{
 		float size = GetSize(v);
-		return size != 0 ? VecT(v.x / size, v.y / size) : v;
+		return size != 0 ? Vector2D<T>(v.x / size, v.y / size) : v;
 	}
 	
-	template<v2d_concepts::ValidT VecT>
-	[[nodiscard]] inline float GetDot(const VecT& v1, const VecT& v2)
+	template<typename T>
+	[[nodiscard]] inline float GetDot(const Vector2D<T>& v1, const Vector2D<T>& v2)
 	{
 		return v1.x * v2.x + v1.y * v2.y;
 	}
@@ -75,20 +76,20 @@ namespace v2d
 
 
 #pragma region from / to JSON
-template<v2d_concepts::ValidT VecT>
-inline void from_json(const nlohmann::json& data, VecT& v)
+template<typename T>
+inline void from_json(const nlohmann::json& j_data, Vector2D<T>& vector)
 {
-	data.at("x").get_to(v.x);
-	data.at("y").get_to(v.y);
+	j_data.at("x").get_to(vector.x);
+	j_data.at("y").get_to(vector.y);
 }
 
-template<v2d_concepts::ValidT VecT>
-inline void to_json(nlohmann::json& data, const VecT& v)
+template<typename T>
+inline void to_json(nlohmann::json& j_data, const Vector2D<T>& vector)
 {
-	data = nlohmann::json
+	j_data = nlohmann::json
 	{
-		{ "x", v.x },
-		{ "y", v.y }
+		{ "x",	vector.x },
+		{ "y",	vector.y }
 	};
 }
 #pragma endregion

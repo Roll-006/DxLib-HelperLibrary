@@ -1,5 +1,6 @@
 ﻿#pragma once
 #include <Axis/axis.hpp>
+#include <Matrix/matrix.hpp>
 #include <JSON/json_loader.hpp>
 
 /// @brief mixamoモデル用のヘルパー関数
@@ -14,7 +15,7 @@ namespace mixamo_helper
     [[nodiscard]] inline Axis ConvertRotMatrixToAxis(const MATRIX& rot_matrix)
     {
         // 回転行列を取得
-        const auto rot      = MGetRotElem(rot_matrix);
+        const auto rot      = matrix::GetRotMatrix(rot_matrix);
         const auto x_axis   = v3d::GetNormalizedV(VGet(rot.m[0][0], rot.m[0][1], rot.m[0][2]));
         const auto y_axis   = v3d::GetNormalizedV(VGet(rot.m[1][0], rot.m[1][1], rot.m[1][2]));
         const auto z_axis   = v3d::GetNormalizedV(VGet(rot.m[2][0], rot.m[2][1], rot.m[2][2]));
@@ -25,16 +26,16 @@ namespace mixamo_helper
 	/// @brief モデルのフレームを描画する
 	/// @param model_handle モデルハンドル
 	/// @param is_draw_joint 関節を描画するかどうか (初期値 : true)
-	/// @param is_draw_bone ボーンを描画するかどうか (初期値 : true)
+	/// @param is_draw_frame ボーンを描画するかどうか (初期値 : true)
 	/// @param is_draw_axis 関節のXYZ軸を描画するかどうか (初期値 : true)
 	/// @param is_fill 関節及びボーンを塗りつぶすかどうか (初期値 : true)
-    inline void DrawFrames(const int model_handle, const bool is_draw_joint = true, const bool is_draw_bone = true, const bool is_draw_axis = true, const bool is_fill = true)
+    inline void DrawFrames(const int model_handle, const bool is_draw_joint = true, const bool is_draw_frame = true, const bool is_draw_axis = true, const bool is_fill = true)
 	{
-		nlohmann::json data;
-        if (!json_loader::Load("DxLib_HelperLibrary/Data/JSON/mixamo_frame_hierarchy.json", data)) { return; }
+		nlohmann::json j_data;
+        if (!json_loader::Load("DxLib_HelperLibrary/Data/JSON_Data/mixamo_frame_hierarchy.json", j_data)) { return; }
 		
         // 最下層フレーム
-		const auto  hips    = data.at("Armature").at("mixamorig:Hips");
+		const auto  hips    = j_data.at("Armature").at("mixamorig:Hips");
         auto        hips_m  = MV1GetFrameLocalWorldMatrix(model_handle, MV1SearchFrame(model_handle, "mixamorig:Hips"));
 
         // 子を辿る再帰関数を定義
@@ -57,9 +58,9 @@ namespace mixamo_helper
                 const auto parent_axis  = ConvertRotMatrixToAxis(parent_matrix);
 
                 // 関節・ボーン・XYZ軸の描画
-                if (is_draw_joint) { DrawSphere3D(parent_pos, radius, 6, 0xffffff, 0xffffff, is_fill); }
-                if (is_draw_bone ) { DrawCone3D(child_pos, parent_pos, radius, 6, 0xffffff, 0xffffff, is_fill); }
-                if (is_draw_axis ) { axis::Draw(parent_axis, parent_pos, axis_length); }
+                if (is_draw_joint)  { DrawSphere3D(parent_pos, radius, 6, 0xffffff, 0xffffff, is_fill); }
+                if (is_draw_frame ) { DrawCone3D(child_pos, parent_pos, radius, 6, 0xffffff, 0xffffff, is_fill); }
+                if (is_draw_axis )  { axis::Draw(parent_axis, parent_pos, axis_length); }
 
                 // 子がいないため再帰しない
                 if (itr.value().empty())
@@ -79,5 +80,12 @@ namespace mixamo_helper
         };
 
         Traverse(hips, hips_m);
+
+        // Armatureの描画
+        auto armature_m             = MV1GetFrameLocalWorldMatrix(model_handle, MV1SearchFrame(model_handle, "Armature"));
+        const auto armature_pos     = MGetTranslateElem(armature_m);
+        const auto armature_axis    = ConvertRotMatrixToAxis(armature_m);
+        axis::Draw(armature_axis, armature_pos, 5.0f);
+        DrawSphere3D(armature_pos, 1, 8, 0xffffff, 0xffffff, FALSE);
 	}
 }
